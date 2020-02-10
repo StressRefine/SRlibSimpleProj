@@ -1,5 +1,5 @@
 SRlibSimpleProj
-Porject to crate the stressRefine library SRlibSimple
+Porject to create the stressRefine library SRlibSimple
 Windows Visual Studio version that was last modified using VS2013.
 That and any newer version should work to compile this project.
 It is in C++
