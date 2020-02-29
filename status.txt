@@ -1,3 +1,0 @@
-exe side
-AllocateDofVectors. Move to SRrun. but allocale in model.
-elem smoothed stress strain routines.
