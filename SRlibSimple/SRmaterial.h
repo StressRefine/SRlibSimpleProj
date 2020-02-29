@@ -66,7 +66,7 @@ public:
 	void assignIso(double et, double nut);
 	void assignOrtho(SRcij& cij);
 	void assignGenAniso(SRgenAnisoCij& gcij);
-	char* GetName(){ return name.str; };
+	const char* GetName();
 	SRmaterialType GetType(){ return type; };
 	double GetRho(){ return rho; };
 	double MatScale();

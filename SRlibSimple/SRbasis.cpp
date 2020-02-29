@@ -164,7 +164,6 @@ void SRbasis::TriBubbleFuncs(double l1, double l2, double l3,int pmax, int &fun,
 	LegendrePns(pmax,r,Pr);
 	LegendrePns(pmax,s11,Ps);
 
-	int fun0 = fun;
 	for(i = 0; i <= n; i++)
 	{
 		for(j = 0; j <= n;j++)
@@ -257,7 +256,7 @@ int SRbasis::ElementBasisFuncs(double r, double s, double t, SRelement *elem, do
 	//return:
 		//total number of basis functions;
 
-	int nfunc;
+	int nfunc = 0;
 
 	if ((elem->GetType()) == tet)
 		nfunc = TetBasisFuncs(r, s, t, elem, basisvec, dbasisdr, dbasisds, dbasisdt, calltype);
@@ -265,9 +264,6 @@ int SRbasis::ElementBasisFuncs(double r, double s, double t, SRelement *elem, do
 		nfunc = WedgeBasisFuncs(r, s, t, elem, basisvec, dbasisdr, dbasisds, dbasisdt, calltype);
 	else if ((elem->GetType()) == brick)
 		nfunc = BrickBasisFuncs(r, s, t, elem, basisvec, dbasisdr, dbasisds, dbasisdt, calltype);
-
-	int n = elem->GetNumFunctions();
-	SRASSERT(nfunc == n);
 
 	return nfunc;
 }
@@ -317,10 +313,19 @@ int SRbasis::TetBasisFuncs(double r, double s, double t, SRelement *elem, double
 	double dLIdr, dLIds, dLIdt, dLJdr, dLJds, dLJdt, dLKdr, dLKds, dLKdt, pipj;
 	double basisej[MAX1DFUNCTIONS], dbasisdrej[MAX1DFUNCTIONS];
 	double Pr[MAX1DFUNCTIONS], Ps[MAX1DFUNCTIONS], Pt[MAX1DFUNCTIONS], dpdr[MAX1DFUNCTIONS], dpds[MAX1DFUNCTIONS], dpdt[MAX1DFUNCTIONS];
-	double rm1, rp1;
 	int i, j, k, fun, pej, nodeI, nodeJ, nodeK, n, elpmax = 0, fun0;
 	SRedge* edge;
 	double N[10];
+
+	dLIdr = 0.0;
+	dLIds = 0.0;
+	dLIdt = 0.0;
+	dLJdr = 0.0;
+	dLJds = 0.0;
+	dLJdt = 0.0;
+	dLKdr = 0.0;
+	dLKds = 0.0;
+	dLKdt = 0.0;
 
 	//corner and midedge functions:
 	model.map.TetVolumeCoords(r, s, t, lv);

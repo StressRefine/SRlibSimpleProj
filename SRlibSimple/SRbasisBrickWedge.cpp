@@ -39,7 +39,7 @@ int SRbasis::QuadFaceBasisFuncs(double r, double s, int *directionv, int *pejv, 
 	//return:
 		//total number of basis functions, -1 if error
 
-	int fun, n;
+	int fun;
 	int pmax = 0;
 
 	//corner and midedge functions:
@@ -75,7 +75,7 @@ void SRbasis::QuadEdgeBlend(int localedge, int direction, double r, double s, in
 		//fun: updated
 		//basisvec = element shape function vector
 
-	double rej, blend;
+	double rej = 0.0, blend = 0.0;
 	double basisej[MAX1DFUNCTIONS];
 	int i;
 	double directionfactor = (double)direction;
@@ -155,10 +155,10 @@ int SRbasis::BrickBasisFuncs(double r, double s, double t, SRelement *elem, doub
 	//return:
 		//total number of basis functions
 
-	double rej, blend;
+	double rej = 0.0, blend = 0.0;
 	double phiI[MAX1DFUNCTIONS], phiJ[MAX1DFUNCTIONS], phiK[MAX1DFUNCTIONS];
 	double phiprimeI[MAX1DFUNCTIONS], phiprimeJ[MAX1DFUNCTIONS], phiprimeK[MAX1DFUNCTIONS];
-	double r0, s0, t0, ri, si, ti;
+	double r0 = 0.0, s0 = 0.0, t0 = 0.0, ri = 0.0, si = 0.0, ti = 0.0;
 	int i, j, k, fun, pej, n, fun0;
 	double N[20];
 
@@ -186,7 +186,7 @@ int SRbasis::BrickBasisFuncs(double r, double s, double t, SRelement *elem, doub
 	SRedge* edge;
 	double directionfactor;
 	int elpmax = 0;
-	int corner;
+	int corner = 0;
 	for(lej = 0; lej < 12; lej++)
 	{
 		edge = elem->GetEdge(lej);

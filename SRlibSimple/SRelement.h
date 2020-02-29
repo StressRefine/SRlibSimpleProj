@@ -89,10 +89,13 @@ public:
 	void AddPenaltyToStiffnessandEnfDisp(double* stiff);
 	SRnode* GetNode(int localnodenum);
 	int localEdgeMatch(int gId);
+	double* CalculateStiffnessMatrix(int &len);
+	SRnode* GetLocalEdgeNode(int lej, int localnodenum);
 	void FillKel33GenAnisoRowWise(SRBTC& btc, int rowfun, int colfun, double dbdx, double dbdy, double dbdz, double kel33[3][3]);
 	void FillBTC(double intwt, double dbdx, double dbdy, double dbdz, SRBTC& btc);
-	double* CalculateStiffnessMatrix(int &len);
-	void colFunLoopGenAniso(double* dbdxv, double* dbdyv, double* dbdzv, double w, int rowfun, SRBTC& btc, double *stiff);
+	void colFunLoopIsoOrtho(double* dbdxv, double* dbdyv, double* dbdzv, double w, int rowfun, SRBTC& btc, double* stiff);
+	void colFunLoopGenAniso(double* dbdxv, double* dbdyv, double* dbdzv, double w, int rowfun, SRBTC& btc, double* stiff);
+
 	SRface* GetFace(int localfacenum);
 	SRedge* GetEdge(int localedgenum);
 	void GetFaceNodes(int lface, int& n1, int& n2, int& n3, int& n4);
@@ -105,7 +108,6 @@ public:
 	int GetUserid(){ return userId; };
 	int GetId(){ return id; };
 	SRelementType GetType(){ return type; };
-	SRnode* GetLocalEdgeNode(int lej, int localnodenum);
 	int GetNumNodes();
 	int GetNumNodesTotal();
 	int GetNodeId(int i);

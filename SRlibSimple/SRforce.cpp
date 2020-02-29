@@ -128,10 +128,10 @@ void SRthermalForce::Process()
 {
 	//fill up contribution of thermal force to the global force vector
 
-	int el, i, fun, gfun, geq, gp, dof;
+	int el, fun, gfun, geq, gp, dof;
 	int nint;
 	double* globalForce;
-	double alphax, alphay, alphaz, r, s, t, w, detj, dbdx, dbdy, dbdz, dhdr, dhds, dhdt;
+	double r, s, t, w, detj, dbdx, dbdy, dbdz, dhdr, dhds, dhdt;
 	double temprst, ceT[6];
 	SRdoubleVector bv, dbdr, dbds, dbdt;
 	bv.Allocate(model.GetmaxNumElementFunctions());
@@ -142,7 +142,7 @@ void SRthermalForce::Process()
 	double* dbasisdr = dbdr.GetVector();
 	double* dbasisds = dbds.GetVector();
 	double* dbasisdt = dbdt.GetVector();
-	bool fullceT;
+	bool fullceT = false;
 	double eTx,eTy,eTz;
 	SRvec3 bTceT;
 	SRelement* elem;
@@ -231,7 +231,6 @@ bool SRthermalForce::CeTMult(SRmaterial *mat, double eTx, double eTy, double eTz
 	{
 		double c11 = mat->getC11();
 		double lambda = mat->getLambda();
-		double G = mat->getG();
 		C[0][0] = c11;
 		C[0][1] = lambda;
 		C[0][2] = lambda;

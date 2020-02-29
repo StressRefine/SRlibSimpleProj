@@ -239,9 +239,7 @@ void SRface::QuadLinearShapeDerivs(double rf, double sf)
 		//fills up class variables dNdrf, dNdsf
 
 	int i;
-	double r0, s0, r2, s2, ri, si;
-	r2 = rf*rf;
-	s2 = sf*sf;
+	double r0, s0, ri, si;
 	//corners:
 	for (i = 0; i < 4; i++)
 	{

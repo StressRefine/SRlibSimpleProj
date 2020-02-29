@@ -29,7 +29,7 @@ extern SRmodel model;
 SRBTC::SRBTC()
 {
 	BTC11 = BTC12 = BTC13 = BTC14 = BTC15 = BTC16 = 0.0;
-	BTC21 = BTC22 = BTC24 = BTC24 = BTC25 =  BTC26 = 0.0;
+	BTC21 = BTC22 = BTC23 = BTC24 = BTC25 =  BTC26 = 0.0;
 	BTC21 = BTC32 = BTC33 = BTC34 = BTC35 = BTC36 = 0.0;
 }
 
@@ -282,6 +282,181 @@ SRnode* SRelement::GetNode(int localnodenum)
 	return model.GetNode(nodeid);
 }
 
+void SRelement::colFunLoopIsoOrtho(double* dbdxv, double* dbdyv, double* dbdzv, double w, int rowfun, SRBTC& btc, double* stiff)
+{
+	//implement code inside "colfun" loop for calculating stiffness matrix
+	//isotropic/orthotropic material version
+	//input:
+		// dbdxv, dbdyv, dbdzv: vectors containing derivatives of all basis functions w.r.t. x,y,z at current gauss point
+		// w = integration weight at current gauss point
+		// rowfun = current row function number
+	//modified:
+		// stiff = element stiffness matrix
+	//scratch:
+		//btc = "BT*C" = transpose of strain-displacement times elasticity matrix for current row function
+	//note:
+		//this uses "vanilla" colfun loops.
+		//I tried using cblas_daxpy instead but it is slower- have to use inc 3 for elstiff updates 
+		//separate tuning tests showed daxpy for inc 3 becomes faster for vector length > 300
+		//for p8 brick, nfun = 192 = max vector length, avg length is 96. so daxpy is slower
+
+	double dbdxi = dbdxv[rowfun];
+	double dbdyi = dbdyv[rowfun];
+	double dbdzi = dbdzv[rowfun];
+	FillBTC(w, dbdxi, dbdyi, dbdzi, btc);
+
+	int nfun = GetNumFunctions();
+	int colfun;
+	int rowcolloc;
+	double a, b, c;
+
+	//rowdof 0:
+	int roweq = rowfun * 3;
+	int rowcolloc0 = stiffDiag.Get(roweq);
+	//coldof 0
+	rowcolloc = rowcolloc0;
+	a = btc.BTC11;
+	b = btc.BTC14;
+	c = btc.BTC15;
+	for (colfun = rowfun; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdxv[colfun] + b * dbdyv[colfun] + c * dbdzv[colfun]);
+		rowcolloc += 3;
+	}
+	//coldof 1
+	rowcolloc = rowcolloc0 + 1;
+	a = btc.BTC12;
+	b = btc.BTC14;
+	for (colfun = rowfun; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdyv[colfun] + b * dbdxv[colfun]);
+		rowcolloc += 3;
+	}
+	//coldof 2
+	rowcolloc = rowcolloc0 + 2;
+	a = btc.BTC13;
+	b = btc.BTC15;
+	for (colfun = rowfun; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdzv[colfun] + b * dbdxv[colfun]);
+		rowcolloc += 3;
+	}
+
+	//rowdof 1:
+	//note: 1st coldof is skipped for colfun = rowfun, rowdof 1 because it is below diagonal
+	roweq++;
+	rowcolloc0 = stiffDiag.Get(roweq);
+	//coldof 0
+	//stiffdiag points to coldof 1 for this fun, so skip 2 to get to coldof 0 for rowfun + 1:
+	rowcolloc = rowcolloc0 + 2;
+	a = btc.BTC21;
+	b = btc.BTC24;
+	for (colfun = rowfun + 1; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdxv[colfun] + b * dbdyv[colfun]);
+		rowcolloc += 3;
+	}
+	//coldof 1
+	rowcolloc = rowcolloc0;
+	a = btc.BTC22;
+	b = btc.BTC24;
+	c = btc.BTC26;
+	for (colfun = rowfun; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdyv[colfun] + b * dbdxv[colfun] + c * dbdzv[colfun]);
+		rowcolloc += 3;
+	}
+	//coldof 2
+	rowcolloc = rowcolloc0 + 1;
+	a = btc.BTC23;
+	b = btc.BTC26;
+	for (colfun = rowfun; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdzv[colfun] + b * dbdyv[colfun]);
+		rowcolloc += 3;
+	}
+
+	//rowdof 2:
+	//note: 1st and 2nd coldofs are skipped for colfun = rowfun, rowdof 2 because they are below diagonal
+	roweq++;
+	rowcolloc0 = stiffDiag.Get(roweq);
+	//coldof 0
+	//stiffdiag points to coldof 2 for this fun, so skip 1 to get to coldof 0 for rowfun + 1:
+	rowcolloc = rowcolloc0 + 1;
+	a = btc.BTC31;
+	b = btc.BTC35;
+	for (colfun = rowfun + 1; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdxv[colfun] + b * dbdzv[colfun]);
+		rowcolloc += 3;
+	}
+	//coldof 1
+	//stiffdiag points to coldof 2 for this fun, so skip 2 to get to coldof 1 for rowfun + 1:
+	rowcolloc = rowcolloc0 + 2;
+	a = btc.BTC32;
+	b = btc.BTC36;
+	for (colfun = rowfun + 1; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdyv[colfun] + b * dbdzv[colfun]);
+		rowcolloc += 3;
+	}
+	//coldof 2
+	rowcolloc = rowcolloc0;
+	a = btc.BTC33;
+	b = btc.BTC35;
+	c = btc.BTC36;
+	for (colfun = rowfun; colfun < nfun; colfun++)
+	{
+		stiff[rowcolloc] += (a * dbdzv[colfun] + b * dbdxv[colfun] + c * dbdyv[colfun]);
+		rowcolloc += 3;
+	}
+}
+
+void SRelement::colFunLoopGenAniso(double* dbdxv, double* dbdyv, double* dbdzv, double w, int rowfun, SRBTC& btc, double* stiff)
+{
+	//implement code inside "colfun" loop for calculating stiffness matrix
+	//isotropic material version
+	//input:
+		// dbdxv, dbdyv, dbdzv: vectors containing derivatives of all basis functions w.r.t. x,y,z at current gauss point
+		// w = integration weight at current gauss point
+		// rowfun = current row function number
+	//modified:
+		// stiff = element stiffness matrix
+	//scratch:
+		//btc = "BT*C" = transpose of strain-displacement times elasticity matrix for current row function
+	double kel33[3][3];
+
+	double dbdxi = dbdxv[rowfun];
+	double dbdyi = dbdyv[rowfun];
+	double dbdzi = dbdzv[rowfun];
+	FillBTC(w, dbdxi, dbdyi, dbdzi, btc);
+	int nfun = GetNumFunctions();
+	for (int colfun = rowfun; colfun < nfun; colfun++)
+	{
+		double dbdxj = dbdxv[colfun];
+		double dbdyj = dbdyv[colfun];
+		double dbdzj = dbdzv[colfun];
+		FillKel33GenAnisoRowWise(btc, rowfun, colfun, dbdxj, dbdyj, dbdzj, kel33);
+
+		int roweq = rowfun * 3;
+		for (int rowdof = 0; rowdof < 3; rowdof++)
+		{
+			int coldof0 = 0;
+			//colfun = rowfun, special case because LT of Kel33 not stored:
+			if (colfun == rowfun)
+				coldof0 = rowdof;
+			int rowcolloc = stiffDiag.Get(roweq);
+			for (int coldof = coldof0; coldof < 3; coldof++)
+			{
+				int coleq = colfun * 3 + coldof;
+				rowcolloc = GetStiffnessLocation(roweq, coleq);
+				stiff[rowcolloc] += kel33[rowdof][coldof];
+			}
+			roweq++;
+		}
+	}
+}
+
 double* SRelement::CalculateStiffnessMatrix(int& len)
 {
 	//Calculate Element Stiffness Matrix for a three dimensional element
@@ -289,20 +464,25 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 		//length of stiffness matrix
 	//return:
 		//Element Stiffness Matrix stored symmetrically
-
-	double *stiff = NULL;
+	//Calculate Element Stiffness Matrix for a three dimensional element
+	//input:
+		//processorNum =  else processor calling this element, 0 for single-thread
+	//output:
+		//length of stiffness matrix
+	//return:
+		//Element Stiffness Matrix stored symmetrically
+	double* stiff = NULL;
 
 	int i, neq;
 	int nfun = globalFunctionNumbers.GetNum();
-	int nint, gp, coleq0;
+	int nint, gp;
 	SRBTC btc;
-	SRmap* map = &model.map;
 	double w, dbdx, dbdy, dbdz;
 	nint = model.math.FillGaussPoints(this);
 
 	neq = 3 * nfun;
 	FillStiffDiag(neq);
-	len = neq*(neq + 1) / 2;
+	len = neq * (neq + 1) / 2;
 
 	if (len > stiffnessMatrix.GetNum())
 		stiffnessMatrix.Allocate(len);
@@ -310,15 +490,16 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 	stiff = stiffnessMatrix.GetVector();
 	if (!pChanged)
 		return stiff;
+
 	for (i = 0; i < len; i++)
 		stiff[i] = 0.0;
 
-	SRElementData *eldata = model.GetElementData();
+	SRElementData* eldata = model.GetElementData();
 
 	SRdoubleMatrix& dbdxm = eldata->Getdbdx();
 	SRdoubleMatrix& dbdym = eldata->Getdbdy();
 	SRdoubleMatrix& dbdzm = eldata->Getdbdz();
-	double *wv = eldata->GetIntwt();
+	double* wv = eldata->GetIntwt();
 	basisVec = eldata->GetBasisVec();
 	dbasisdr = eldata->Getdbasisdr();
 	dbasisds = eldata->Getdbasisds();
@@ -330,7 +511,7 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 		double r, s, t;
 		model.math.GetGP3d(gp, r, s, t, w);
 		double detj = FillMapping(r, s, t);
-		if (detj < approxVol*SMALL)
+		if (detj < approxVol * SMALL)
 		{
 
 			REPPRINT(" bad Jacobian. Element: %d", GetUserid());
@@ -353,23 +534,34 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 		}
 	}
 
+	bool isGenAniso = (elMat->GetType() == genAniso) || model.UseSimpleElements();
+
 	for (gp = 0; gp < nint; gp++)
 	{
-		double *dbdxv = dbdxm.GetRow(gp);
-		double *dbdyv = dbdym.GetRow(gp);
-		double *dbdzv = dbdzm.GetRow(gp);
+		double* dbdxv = dbdxm.GetRow(gp);
+		double* dbdyv = dbdym.GetRow(gp);
+		double* dbdzv = dbdzm.GetRow(gp);
 		w = wv[gp];
-		for (int rowfun = 0; rowfun < nfun; rowfun++)
-			colFunLoopGenAniso(dbdxv, dbdyv, dbdzv, w, rowfun, btc, stiff);
+		if (!isGenAniso)
+		{
+			for (int rowfun = 0; rowfun < nfun; rowfun++)
+				colFunLoopIsoOrtho(dbdxv, dbdyv, dbdzv, w, rowfun, btc, stiff);
+		}
+		else
+		{
+			for (int rowfun = 0; rowfun < nfun; rowfun++)
+				colFunLoopGenAniso(dbdxv, dbdyv, dbdzv, w, rowfun, btc, stiff);
+		}
 	}
 
-	if ( hasLcsConstraint())
+	if (hasLcsConstraint())
 		AddPenaltyToStiffnessandEnfDisp(stiff);
 
 
 	stiffLength = len;
 
 	return stiff;
+
 }
 
 void SRelement::AddPenaltyToStiffnessandEnfDisp(double *stiff)
@@ -385,8 +577,8 @@ void SRelement::AddPenaltyToStiffnessandEnfDisp(double *stiff)
 	int condof, rowfun, colfun, rowdof, coldof, roweq, coleq, elrowfun, elcolfun;
 	SRface *face;
 	SRconstraint *con;
-	double rf, sf, w, bi, bj, enfdisp, detj, bibj, bibjelB;
-	int i, nint, nfun, symloc, nfun2;
+	double rf, sf, w, bi, bj, enfdisp = 0.0, detj, bibj, bibjelB;
+	int i, nint, nfun, symloc;
 	double *basisv = basisVec;
 	SRvec3 elocal;
 	double elA, elB;
@@ -741,7 +933,6 @@ double SRelement::CalculateRawStrain(double r, double s, double t, double strain
 	//Note: if thermal loading is present, strain is total strain
 
 	int fun, nfun, eq;
-	SRmap* map = &model.map;
 	double dbdx, dbdy, dbdz, dbdr, dbds, dbdt, uel, vel, wel, ex, ey, ez, gamxy, gamxz, gamyz;
 
 	nfun = globalFunctionNumbers.GetNum();
@@ -786,7 +977,6 @@ double SRelement::CalculateRawStrain(double r, double s, double t, double strain
 	{
 		double deltaTemp, etx, ety, etz;
 		deltaTemp = tf->GetTemp(this, r, s, t) - elMat->getTref();
-		double alfx, alfy, alfz;
 		etx = deltaTemp*elMat->getAlphax();
 		ety = deltaTemp*elMat->getAlphay();
 		etz = deltaTemp*elMat->getAlphaz();
@@ -813,7 +1003,7 @@ int SRelement::MapFaceToElFuns(int lface, int FaceToElFuns[])
 	//return:
 		//number of functions on the face
 
-	int i, lej, lfaceej, elfun, facefun = 0, gf, ge, n, elf, elfun0;
+	int i, lej, lfaceej, elfun = 0, facefun = 0, gf, ge, n, elf, elfun0;
 	SRface* face = GetFace(lface);
 	for (i = 0; i < face->GetNumNodes(); i++)
 	{
@@ -836,7 +1026,6 @@ int SRelement::MapFaceToElFuns(int lface, int FaceToElFuns[])
 	for (lfaceej = 0; lfaceej < face->GetNumLocalEdges(); lfaceej++)
 	{
 		gf = face->GetLocalEdgeGlobalId(lfaceej);
-		int nf = face->GetLocalEdgePOrder(lfaceej) + 1;
 		elfun = elfun0;
 		for (lej = 0; lej < localEdges.GetNum(); lej++)
 		{
@@ -856,7 +1045,7 @@ int SRelement::MapFaceToElFuns(int lface, int FaceToElFuns[])
 	for (lfaceej = 0; lfaceej < face->GetNumLocalEdges(); lfaceej++)
 	{
 		gf = face->GetLocalEdgeGlobalId(lfaceej);
-		int nf = face->GetLocalEdgePOrder(lfaceej) + 1;
+		int nf = face->GetLocalEdgePOrder(lfaceej);
 		elfun = elfun0;
 		for (lej = 0; lej < localEdges.GetNum(); lej++)
 		{
@@ -895,7 +1084,6 @@ int SRelement::MapFaceToElFuns(int lface, int FaceToElFuns[])
 	}
 
 	n = model.basis.CountFaceTotalFunctions(face, i);
-	SRASSERT(n == facefun);
 
 	return facefun;
 }
@@ -1368,54 +1556,6 @@ int SRelement::GetStiffnessLocation(int row, int col)
 }
 
 
-void SRelement::colFunLoopGenAniso(double* dbdxv, double* dbdyv, double* dbdzv, double w, int rowfun, SRBTC& btc, double *stiff)
-{
-	//implement code inside "colfun" loop for calculating stiffness matrix
-	//Gemera; anisotropic material version
-	//input:
-		// dbdxv, dbdyv, dbdzv: vectors containing derivatives of all basis functions w.r.t. x,y,z at current gauss point
-		// w = integration weight at current gauss point
-		// rowfun = current row function number
-	//modified:
-		// stiff = element stiffness matrix
-	//scratch:
-		//btc = "BT*C" = transpose of strain-displacement times elasticity matrix for current row function
-
-	double kel33[3][3];
-
-	double dbdxi = dbdxv[rowfun];
-	double dbdyi = dbdyv[rowfun];
-	double dbdzi = dbdzv[rowfun];
-	FillBTC(w, dbdxi, dbdyi, dbdzi, btc);
-	int nfun = GetNumFunctions();
-	int colfun;
-	int rowcolloc;
-	for (int colfun = rowfun; colfun < nfun; colfun++)
-	{
-		double dbdxj = dbdxv[colfun];
-		double dbdyj = dbdyv[colfun];
-		double dbdzj = dbdzv[colfun];
-		FillKel33GenAnisoRowWise(btc, rowfun, colfun, dbdxj, dbdyj, dbdzj, kel33);
-
-		int roweq = rowfun * 3;
-		for (int rowdof = 0; rowdof < 3; rowdof++)
-		{
-			int coldof0 = 0;
-			//colfun = rowfun, special case because LT of Kel33 not stored:
-			if (colfun == rowfun)
-				coldof0 = rowdof;
-			int rowcolloc = stiffDiag.Get(roweq);
-			for (int coldof = coldof0; coldof < 3; coldof++)
-			{
-				int coleq = colfun * 3 + coldof;
-				rowcolloc = GetStiffnessLocation(roweq, coleq);
-				stiff[rowcolloc] += kel33[rowdof][coldof];
-			}
-			roweq++;
-		}
-	}
-}
-
 void SRelement::FillBTC(double intwt, double dbdx, double dbdy, double dbdz, SRBTC& btc)
 {
 	//fill matrix "BTC" = strain-displacement matrixe times elasticity matrix
@@ -1635,7 +1775,6 @@ SRvec3 SRelement::GetDisp(double r, double s, double t)
 		
 	SRElementData *eldata = model.GetElementData();
 	basisVec = eldata->GetBasisVec();
-	double *dispElVec = dispEl.GetVector();
 	int nfun = globalFunctionNumbers.GetNum();
 	FillBasisFuncs(r, s, t, basisonly);
 	SRvec3 disp;
@@ -1766,7 +1905,6 @@ bool SRelement::checkSlopeKink()
 		//true if any kink found
 
 	double dotmin = 1.0;
-	SRface* facemin = NULL;
 	for (int f = 0; f < localFaces.GetNum(); f++)
 	{
 		SRface* face = GetFace(f);
@@ -1804,7 +1942,6 @@ bool SRelement::checkSlopeKink()
 					if (normdot < dotmin)
 					{
 						dotmin = normdot;
-						facemin = face;
 					}
 				}
 			}
@@ -1868,11 +2005,6 @@ bool SRelement::hasLcsConstraint()
 void SRelement::AddfaceLCSConstraint(int lface)
 {
 	faceLCSConstraints.pushBack(lface);
-};
-
-SRnode* SRelement::GetLocalEdgeNode(int lej, int localnodenum)
-{
-	return localEdges.Get(lej).GetEdge()->GetNode(localnodenum);
 };
 
 int SRelement::GetNumNodes()
@@ -2036,19 +2168,8 @@ double SRelement::getdNdt(int i)
 	return dNdt[i];
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+SRnode* SRelement::GetLocalEdgeNode(int lej, int localnodenum)
+{
+	return localEdges.Get(lej).GetEdge()->GetNode(localnodenum);
+};
 

@@ -42,8 +42,8 @@ public:
 	SRcoordType GetType(){ return type; };
 	void GetPos(double &x, double &y, double &z, SRvec3& pos);
 	void operator =(SRcoord& c2);
-	void setName(char *nameIn);
-	char* GetName();
+	void setName(const char *nameIn);
+	const char* GetName();
 	void VecTransform(SRvec3 p, SRvec3 &v);
 	int checkParallelToGcs(int dof);
 	void setType(SRcoordType typeIn){type = typeIn;};

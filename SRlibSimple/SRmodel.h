@@ -37,7 +37,7 @@ also available at <https://www.gnu.org/licenses/>
 #include "SRedge.h"
 #include "SRface.h"
 #include "SRelement.h"
-#include "SRConstraint.h"
+#include "SRconstraint.h"
 #include "SRforce.h"
 #include "SRfile.h"
 
@@ -164,7 +164,6 @@ public:
 	void CreateElemEdges(SRelement *elem, int nnodes, int inputNodes[]);
 	void CreateElem(int id, int userid, int nnodes, int nodes[], SRmaterial* mat);
 
-
 	void PutNumNodeFaces(int i, int n){ numNodeFaces.Put(i, n); };
 	int GetNumNodeFaces(int i){ return numNodeFaces[i]; };
 	void PutNodeFace(int i, int j, int f){ nodeFaces.Put(i, j, f); };
@@ -249,13 +248,16 @@ public:
 	void allocateNodeFaces(int n);
 	void freeNodeEdges();
 	void freeNodeFaces();
+	void SetsimpleElements();
+	bool UseSimpleElements();
+
 
 	//1 instance of each utility class:
 	SRbasis basis;
 	SRmath math;
 	SRmap map;
 
-	SRfile reportFile;
+	SRfile repFile;
 	SRfile logFile;
 	SRfile outFile;
 
@@ -304,7 +306,7 @@ private:
 	double maxAllowableAnyActiveMat;
 	bool anyBricks;
 	bool anyWedges;
-
+	bool simpleElements;
 };
 
 #endif //!defined(SRMODEL_INCLUDED)

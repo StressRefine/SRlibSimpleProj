@@ -193,7 +193,6 @@ void SRmap::QuadLinearShapeFunctions(double rf, double sf, double N[])
 		//N=vector of shape functions
 
 	double r0, s0;
-	int i;
 
 	for (int i = 0; i<4; i++)
 	{
@@ -210,7 +209,6 @@ void SRmap::WedgeLinearShapeFunctions(double r, double s, double t, double N[])
 	//rf,sf=natural coordinates on face
 	//output:
 	//N=vector of shape functions
-	double r0, s0, t0, ri, si, ti;
 	double L[3];
 	int i;
 	//derivatives of corner shape functions:

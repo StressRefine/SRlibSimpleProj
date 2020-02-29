@@ -43,6 +43,12 @@ SRmaterial::SRmaterial()
 	numelyielded = 0;
 };
 
+const char* SRmaterial::GetName()
+{
+	return name.getStr();
+};
+
+
 double SRmaterial::GetVolPercentYielded()
 {
 	if (numElements == 0)

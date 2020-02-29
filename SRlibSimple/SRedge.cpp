@@ -500,9 +500,8 @@ void SRedge::ProcessForce(SRforce *force, SRvec3& resF)
 	//output:
 		//ResF = updated
 
-	int i, n, dof, nint, gp, eq, gfun;
+	int i,dof, nint, gp, eq, gfun;
 	SRgaussPoint* g1d;
-	n = globalFunctionNumbers.GetNum();
 	double* globalForce = model.getSolutionVector();
 	double r, w, basis[10], ds, bw, forceVal[3];
 	nint = pOrder + 1;
@@ -573,9 +572,6 @@ bool SRedge::checkKinkOK(SRface* face0, int lej0, SRface* face1, int lej1)
 	//return:
 		//true if kink in normals is within tolerance, else false
 
-	double kinkTol = 0.9848; //10 degrees
-	if (model.getAllFacesFlat())
-		kinkTol = 0.866; //30 degrees
 	double r, s;
 	SRvec3 norm0, norm1;
 	face0->NaturalCoordinatesNearMidedge(lej0, r, s);

@@ -281,12 +281,12 @@ void SRcoord::operator =(SRcoord& c2)
 	Copy(c2);
 };
 
-void SRcoord::setName(char *nameIn)
+void SRcoord::setName(const char *nameIn)
 {
 	name = nameIn;
 };
 
-char* SRcoord::GetName()
+const char* SRcoord::GetName()
 {
-	return name.str;
+	return name.getStr();
 };

@@ -28,7 +28,7 @@ extern SRmodel model;
 
 static bool errorExitCalled = false;
 
-void SRutil::ErrorExit(char *file, int line)
+void SRutil::ErrorExit(const char *file, int line)
 {
 	//print error messages and shut down
 	//when a fatal error occurs
@@ -43,16 +43,6 @@ void SRutil::ErrorExit(char *file, int line)
 
 	exit(0);
 }
-
-void SRutil::SRAssert(char *file, int line, bool expn)
-{
-	//error exit if expn is not true
-
-	if (!expn)
-		SRutil::ErrorExit(file, line);
-}
-
-
 
 void SRintVector::PushBack(int v)
 {

@@ -47,6 +47,7 @@ SRmodel::SRmodel()
 	anyBricks = false;
 	anyWedges = false;
 
+	simpleElements = false;
 };
 
 void SRmodel::FillGlobalFaces()
@@ -80,7 +81,7 @@ void SRmodel::FillGlobalFaces()
 	int lface, n1, n2, n3, n4, gn1, gn2, gn3, gn4, gface;
 	SRface* face;
 	SRlocalFace* ellocFace;
-	int gej, direction;
+	int direction;
 	SRelement* elem;
 	for (int el = 0; el < elements.GetNum(); el++)
 	{
@@ -407,10 +408,6 @@ void SRmodel::AllocateSmoothFunctionEquations(int n)
 void SRmodel::allocateElements(int nel)
 {
 	elements.Allocate(nel);
-	//allocate space for global edges also:
-	//worst case of model with all bricks. Not wasteful because
-	//these are just pointers
-	int nedge = 12 * nel;
 }
 
 
@@ -474,17 +471,7 @@ SRFaceForceGroup* SRmodel::getFaceForceGroup(int i)
 
 void SRmodel::setRepFileName(char* s)
 {
-	reportFile.setFileName(s);
-}
-
-void SRmodel::setOutFileName(char* s)
-{
-	outFile.setFileName(s);
-}
-
-void SRmodel::setLogFileName(char* s)
-{
-	logFile.setFileName(s);
+	repFile.setFileName(s);
 }
 
 void SRmodel::allocateNodeEdges(int n)
@@ -553,6 +540,17 @@ void SRmodel::CreateElem(int id, int userid, int nnodes, int nodes[], SRmaterial
 	SRelement* elem = GetElement(id);
 	elem->Create(userid, nnodes, nodes, mat);
 }
+
+void SRmodel::SetsimpleElements()
+{
+	simpleElements = true;
+};
+
+bool SRmodel::UseSimpleElements()
+{
+	return simpleElements;
+};
+
 
 
 

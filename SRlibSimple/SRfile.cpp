@@ -1,19 +1,18 @@
 /*
 Copyright (c) 2020 Richard King
 
-The StressRefine library is free software: you can redistribute it and/or modify
+The stressRefine analysis executable "SRwithMkl" is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-The StressRefine library is distributed in the hope that it will be useful,
+SRwithMkl is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-The terms of the GNU General Public License are explained in the file COPYING,
+The terms of the GNU General Public License are explained in the file COPYING.txt,
 also available at <https://www.gnu.org/licenses/>
-
 */
 
 //////////////////////////////////////////////////////////////////////
@@ -25,84 +24,75 @@ also available at <https://www.gnu.org/licenses/>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <io.h>
-#include <direct.h>
+#include "SRmachDep.h"
 #include "SRfile.h"
 #include "SRmodel.h"
-#include "SRmachDep.h"
 
-#define ECHOTOSTAT true
 
 extern SRmodel model;
 
-bool SRfile::Existcheck(char *name)
+SRfile::SRfile()
 {
-    //determine if file "name" exists
-    //return:
-		//true if it exists else false
-
-	if(_access(name,0) != -1)
-		return true;
-	else
-		return false;
+	fileptr = NULL;
+	opened = false;
+	filename = "";
 }
 
-bool SRfile::Existcheck()
+int SRfile::GetFilePos()
 {
-	//determine if a file corresponding to class variable filename exists
+	return filePos;
+};
 
-	return SRfile::Existcheck(filename.str);
-}
 
-bool SRfile::Open(FileOpenMode mode, char *name)
+bool SRfile::Open(FileOpenMode mode,const char *name)
 {
     //open file "name"
     //input:
         //mode = SRinputMode, SRoutputMode, SRappendMode, SRoutbinaryMode, SRinbinaryMode, or SRinoutbinaryMode
     //return:
-		//true if file was already opened else false
+		//true if file was already opened else flalse
 	if(opened)
 		return false;
+
 	filePos = 0; //position for binary i/o is at beginning of file for newly opened file
 
 	if (name != NULL)
 		filename = name;
-	if (filename.len == 0)
+	if (filename.getLength() == 0)
 		return false;
 
 	if (mode == SRinputMode)
 	{
 		//unsuccessful trying to open a non-existent file for reading
-		if (!Existcheck(filename.str))
+		if (!Existcheck(filename.getStr()))
 			return false;
-		fopen_s(&fileptr, filename.str, "r");
+		FOPEN(fileptr,filename.getStr(), "r");
 	}
 	else if (mode == SRoutputMode)
 	{
 		//overwrite existing file for output mode:
-		if (Existcheck(filename.str))
-			_unlink(filename.str);
-		fopen_s(&fileptr, filename.str, "w");
+		if (Existcheck(filename.getStr()))
+			UNLINK(filename.getStr());
+		FOPEN(fileptr,filename.getStr(), "w");
 	}
 	else if (mode == SRappendMode)
-		fopen_s(&fileptr, filename.str, "a");
+		FOPEN(fileptr,filename.getStr(), "a");
 	else if (mode == SRoutbinaryMode)
-		fopen_s(&fileptr, filename.str, "wb");
+		FOPEN(fileptr,filename.getStr(), "wb");
 	else if (mode == SRinbinaryMode)
 	{
 		//unsuccessful trying to open a non-existent file for reading
-		if (!Existcheck(filename.str))
+		if (!Existcheck(filename.getStr()))
 			return false;
-		fopen_s(&fileptr, filename.str, "rb");
+		FOPEN(fileptr,filename.getStr(), "rb");
 	}
 	else if (mode == SRinoutbinaryMode)
-		fopen_s(&fileptr, filename.str, "rb+");
+		FOPEN(fileptr,filename.getStr(), "rb+");
 	else
 		return false;
 
-	if (fileptr == NULL)
+	if(fileptr == NULL)
 	{
-		SRASSERT(0);
 		return false;
 	}
 	else
@@ -110,6 +100,16 @@ bool SRfile::Open(FileOpenMode mode, char *name)
 		opened = true;
 		return true;
 	}
+}
+
+void SRfile::ToTop()
+{
+	rewind(fileptr);
+}
+
+bool SRfile::Open(SRstring& fn, FileOpenMode mode)
+{
+	return Open(mode, fn.getStr());
 }
 
 bool SRfile::GetLine(SRstring &line,bool noSlashN)
@@ -121,8 +121,6 @@ bool SRfile::GetLine(SRstring &line,bool noSlashN)
         //line = the fetched line stored as SRstring
     //return
         //true if successful else false (e.g. EOF)
-	if (!opened)
-		return false;
 	line.Clear();
 	char *tmp,c;
 	int len;
@@ -165,12 +163,13 @@ bool SRfile::Close()
 	return true;
 }
 
-bool SRfile::Print(char *fmt,...)
+
+bool SRfile::Print(const char *fmt,...)
 {
-	//print to file; layer over vfprintf
-	//input:
-		//fmt = format string
-		//... = variable input
+//print to file; layer over vfprintf
+//input:
+    //fmt = format string
+    //... = variable input
 
 	va_list arglist;
 	va_start(arglist, fmt);
@@ -182,15 +181,15 @@ bool SRfile::Print(char *fmt,...)
 		return true;
 }
 
-bool SRfile::VPrint(char *fmt, va_list arglist)
+bool SRfile::VPrint(const char *fmt, va_list arglist)
 {
 	//print to file; layer over vfprintf
 	//input:
-		//fmt = format string
-		//va_list = variable argument list
+	//fmt = format string
+	//va_list = variable argument list
 
-	int len = strlen(fmt);
 	int ret = 0;
+	vprintf(fmt, arglist);
 	ret = vfprintf(fileptr, fmt, arglist);
 	va_end(arglist);
 	if (ret < 0)
@@ -199,12 +198,12 @@ bool SRfile::VPrint(char *fmt, va_list arglist)
 		return true;
 }
 
-bool SRfile::PrintLine(char *fmt,...)
+bool SRfile::PrintLine(const char *fmt,...)
 {
-	//print to file; layer over vfprintf. append \n
-	//input:
-		//fmt = format string
-		//... = variable input
+//print to file; layer over vfprintf. append \n
+//input:
+    //fmt = format string
+    //... = variable input
 
 	va_list arglist;
 	va_start(arglist, fmt);
@@ -213,23 +212,25 @@ bool SRfile::PrintLine(char *fmt,...)
 	return ret;
 }
 
-bool SRfile::VPrintLine(char *fmt, va_list arglist)
+bool SRfile::VPrintLine(const char *fmt, va_list arglist)
 {
-	//print to file; layer over vfprintf. append \n
-	//input:
-		//fmt = format string
-		//va_list = variable argument list
+//print to file; layer over vfprintf. append \n
+//input:
+    //fmt = format string
+    //va_list = variable argument list
 
 	int len = strlen(fmt);
 	int ret = 0;
 	if(fmt[len-1] != '\n')
 	{
-		strcpy_s(linebuf, MAXLINELENGTH, fmt);
-		strcat_s(linebuf, MAXLINELENGTH, "\n");
+		STRCPY(linebuf, MAXLINELENGTH, fmt);
+		STRCAT(linebuf, MAXLINELENGTH, "\n");
 		ret = vfprintf(fileptr, linebuf, arglist);
 	}
 	else
+	{
 		ret = vfprintf(fileptr, fmt, arglist);
+	}
 	va_end(arglist);
 	if(ret < 0)
 		return false;
@@ -247,22 +248,198 @@ bool SRfile::PrintReturn()
 		return true;
 }
 
-//static:
-void SRfile::GetCurrentDir(SRstring &dir)
+bool SRfile::WriteBinary(int n, void* v, bool intArg)
 {
-    //get the current working directory for io
-	//output:
-		//dir = string, name of current working directory
-	char buf[MAXLINELENGTH];
-	char *s = _getcwd(buf, MAXLINELENGTH);
-	dir = s;
+	//binary output to this file
+	//input:
+		//n = number of words
+		//v = data to write
+		//intArg = true if v is int vector, false for double
+	//return:
+		//true is successful else false
+	//note:
+		//class variable filePos contains current position of file pointer,
+		//which is updated after the write
+	if (!opened)
+		return false;
+	int nrem, pos, size;
+	if (intArg)
+		size = sizeof(int);
+	else
+		size = sizeof(double);
+	int nwords = SRBUFSIZE / size;
+	double* dv = (double*)v;
+	int* iv = (int*)v;
+	nrem = n;
+	pos = 0;
+	while (1)
+	{
+		if (nrem >= nwords)
+		{
+			if (intArg)
+			{
+				if (fwrite(iv + pos, size, nwords, fileptr) < 0)
+					return false;
+			}
+			else
+			{
+				if (fwrite(dv + pos, size, nwords, fileptr) < 0)
+					return false;
+			}
+			pos += nwords;
+			nrem -= nwords;
+		}
+		else
+		{
+			if (intArg)
+			{
+				if (fwrite(iv + pos, size, nrem, fileptr) < 0)
+					return false;
+			}
+			else
+			{
+				if (fwrite(dv + pos, size, nrem, fileptr) < 0)
+					return false;
+			}
+			break;
+		}
+	}
+	filePos += n;
+	return true;
 }
 
-void SRfile::Delete(char *name)
+bool SRfile::ReadBinary(int n, void* v, bool intArg)
+{
+	//binary input from this file
+	//input:
+		//n = number of words
+		//v = data to read
+		//intArg = true if v is int vector, false for double
+	//return:
+		//true is successful else false
+	//note:
+		//class variable filePos contains current position of file pointer,
+		//which is updated after the read
+
+	if (!opened)
+		return false;
+	int size;
+	if (intArg)
+		size = sizeof(int);
+	else
+		size = sizeof(double);
+	int nwords = SRBUFSIZE / size;
+	int nrem, pos;
+	nrem = n;
+	pos = 0;
+	int nread;
+	double* dv = (double*)v;
+	int* iv = (int*)v;
+	while (1)
+	{
+		if (nrem >= nwords)
+		{
+			if (intArg)
+			{
+				if ((int)fread(iv + pos, size, nwords, fileptr) < nwords)
+					return false;
+			}
+			else
+			{
+				if ((int)fread(dv + pos, size, nwords, fileptr) < nwords)
+					return false;
+			}
+			pos += nwords;
+			nrem -= nwords;
+		}
+		else
+		{
+			if (intArg)
+			{
+				nread = (int)fread(iv + pos, size, nrem, fileptr);
+				if (nread < nrem)
+					return false;
+			}
+			else
+			{
+				if ((int)fread(dv + pos, size, nrem, fileptr) < nrem)
+					return false;
+			}
+			break;
+		}
+	}
+	filePos += n;
+	return true;
+}
+
+bool SRfile::SeekBinary(int pos, bool intArg)
+{
+	//reposition file pointer for this file
+	//input:
+		//pos = new file position
+		//intArg = true if file has int data, false for double
+	//return:
+		//true is successful else false
+	//note:
+		//class variable filePos is updated to "pos"
+
+	if (!opened)
+		return false;
+	int size;
+	if (intArg)
+		size = sizeof(int);
+	else
+		size = sizeof(double);
+	if (pos == filePos)
+		return true;
+	filePos = pos;
+	if (pos == 0)
+	{
+		rewind(fileptr);
+		return true;
+	}
+	else
+	{
+		int i, nbytes = pos * size;
+		i = fseek(fileptr, nbytes, SEEK_SET);
+		if (i)
+			return false;
+		else
+			return true;
+	}
+}
+
+//static:
+
+bool SRfile::Existcheck(const char* name)
+{
+	//determine if file "name" exists
+	//return true if it exists else false
+#ifdef linux
+	if (access(name, 0) != -1)
+		return true;
+	else
+		return false;
+#else
+	if (_access(name, 0) != -1)
+		return true;
+	else
+		return false;
+#endif
+}
+
+
+
+bool SRfile::Existcheck(SRstring& name)
+{
+	return Existcheck(name.getStr());
+}
+
+void SRfile::Delete(const char *name)
 {
     //delete file "name"
 	if(Existcheck(name))
-	    _unlink(name);
+		UNLINK(name);
 }
 
 void SRfile::Delete()
@@ -270,120 +447,38 @@ void SRfile::Delete()
     //delete this file
 	if(opened)
 		Close();
-	SRfile::Delete(filename.str);
+	SRfile::Delete(filename.getStr());
 }
 
-void SRfile::PrintReportFile(char *fmt, ...)
+bool SRfile::PrintRepFile(const char* fmt, ...)
 {
-	//print to model reportFile and screen using format fmt; append \n
+	//print to file using format fmt
 	//input:
 		//fmt = format string
 		//... variable data to print
 	//return:
 		//true if successful else false
 
-	SRfile* f = &model.reportFile;
-	f->Open(SRappendMode);
-	va_list arglist;
-	va_start(arglist, fmt);
-	bool ret = f->VPrintLine(fmt, arglist);
-	f->Close();
-}
-
-void SRfile::PrintReportFileNoRet(char *fmt, ...)
-{
-	//print to model reportFile and screen using format fmt; do not append \n
-	//input:
-		//fmt = format string
-		//... variable data to print
-	//return:
-		//true if successful else false
-
-	SRfile* f = &model.reportFile;
-	f->Open(SRappendMode);
+	SRfile* f = &model.repFile;
+	bool opened = f->opened;
+	if (!opened)
+	{
+		if (!f->Open(SRappendMode))
+			return false;
+	}
 	va_list arglist;
 	va_start(arglist, fmt);
 	bool ret = f->VPrint(fmt, arglist);
-	f->Close();
-}
-
-void SRfile::LogPrint(char *fmt, ...)
-{
-	//print to model logFile and screen using format fmt; append \n
-	//input:
-		//fmt = format string
-		//... variable data to print
-	//return:
-		//true if successful else false
-
-	SRfile* f = &model.logFile;
-	f->Open(SRappendMode);
-	va_list arglist;
-	va_start(arglist, fmt);
-	bool ret = f->VPrintLine(fmt, arglist);
-	f->Close();
-}
-
-void SRfile::LogPrintNoRet(char *fmt, ...)
-{
-	//print to model logFile and screen using format fmt; do not append \n
-	//input:
-		//fmt = format string
-		//... variable data to print
-	//return:
-		//true if successful else false
-
-	SRfile* f = &model.logFile;
-	f->Open(SRappendMode);
-	va_list arglist;
-	va_start(arglist, fmt);
-	bool ret = f->VPrint(fmt, arglist);
-	f->Close();
-}
-
-void SRfile::OutPrint(char *fmt, ...)
-{
-	//print to model output File using format fmt; append \n
-	//input:
-		//fmt = format string
-		//... variable data to print
-	//return:
-		//true if successful else false
-
-	SRfile* f = &model.outFile;
-	f->Open(SRappendMode);
-	va_list arglist;
-	va_start(arglist, fmt);
-	bool ret = f->VPrintLine(fmt, arglist);
-	f->Close();
-}
-
-void SRfile::OutPrintNoRet(char *fmt, ...)
-{
-	//print to model output File using format fmt; do not append \n
-	//input:
-		//fmt = format string
-		//... variable data to print
-	//return:
-		//true if successful else false
-
-	SRfile* f = &model.outFile;
-	f->Open(SRappendMode);
-	va_list arglist;
-	va_start(arglist, fmt);
-	bool ret = f->VPrint(fmt, arglist);
-	f->Close();
+	if (!opened)
+		f->Close();
+	return ret;
 }
 
 bool SRfile::OutOpenNoFail()
 {
-	//Open a file whose name was previously assigned for output
-	//return true if open successful else false
-	//overwrite existing file for output mode:
-
-	if (Existcheck(filename.str))
-		_unlink(filename.str);
-	fopen_s(&fileptr, filename.str, "w");
+	if (Existcheck(filename.getStr()))
+		UNLINK(filename.getStr());
+	FOPEN(fileptr, filename.getStr(), "w");
 	if (fileptr == NULL)
 		return false;
 	else
@@ -393,42 +488,36 @@ bool SRfile::OutOpenNoFail()
 	}
 }
 
-bool SRfile::CreateDir(char *name)
+bool SRfile::PrintLogFile(const char* fmt, ...)
 {
-    //create directory "name"
-    //return:
+	//print to file using format fmt; append \n
+	//input:
+		//fmt = format string
+		//... variable data to print
+	//return:
 		//true if successful else false
 
-	bool ret;
-	if(Existcheck(name))
-		ret = true;
-	else
-		ret = SRmachDep::CreateDir(name);
-	SRASSERT(ret);
+	SRfile* f = &model.logFile;
+	bool opened = f->opened;
+	if (!opened)
+	{
+		if (!f->Open(SRappendMode))
+			return false;
+	}
+	va_list arglist;
+	va_start(arglist, fmt);
+	bool ret = f->VPrintLine(fmt, arglist);
+	if (!opened)
+		f->Close();
 	return ret;
 }
 
-bool SRfile::Rename(SRstring& newName, bool overWriteOk)
+bool SRfile::Existcheck()
 {
-	SRstring oldname = filename;
-	if (overWriteOk)
-		Delete(newName.str);
-	filename = newName;
-	int status = rename(oldname.str, filename.str);
-	if (status == 0)
-		return true;
-	else
-		return false;
+	return SRfile::Existcheck(filename.getStr());
 }
 
-bool SRfile::Rename(char* newName, bool overWriteOk)
-{
-	SRstring s;
-	s = newName;
-	return Rename(s, overWriteOk);
-}
-
-bool SRfile::Screenprint(char *fmt, ...)
+bool SRfile::Screenprint(const char *fmt, ...)
 {
 	//print to cmd screen
 	//input:
@@ -438,7 +527,19 @@ bool SRfile::Screenprint(char *fmt, ...)
 		//true if successful else false
 	va_list arglist;
 	va_start(arglist, fmt);
-	return vprintf_s(fmt, arglist);
+	int ret = 0;
+	ret = vprintf(fmt, arglist);
+	return ret;
+}
+
+void SRfile::setFileName(SRstring& name)
+{
+	filename = name;
+};
+
+void SRfile::setFileName(const char* s)
+{
+	filename.Copy(s);
 }
 
 
