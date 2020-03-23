@@ -25,6 +25,9 @@ also available at <https://www.gnu.org/licenses/>
 #include <stdlib.h>
 #include "SRmodel.h"
 
+//One global instance of "model""
+SRmodel model;
+
 //////////////////////////////////////////////////////////////////////
 
 SRmodel::SRmodel()
@@ -289,7 +292,7 @@ void SRmodel::FreeElementData()
 	eld->dbdz.Free();
 }
 
-void SRmodel::allocateSmallElementData(int numEquations, bool anyLcsEnfd)
+void SRmodel::allocateSmallElementData(bool anyLcsEnfd)
 {
 	//allocate less memory intensive data 
 	//for use by element stiffness and stress routines
@@ -384,6 +387,11 @@ SRface* SRmodel::addFace()
 	return faces.Add();
 }
 
+SRelement* SRmodel::addElement()
+{
+	return elements.Add();
+}
+
 SRconstraint* SRmodel::addConstraint()
 {
 	return constraints.Add();
@@ -394,10 +402,10 @@ SRforce* SRmodel::addForce()
 	return forces.Add();
 }
 
-void SRmodel::AllocateDofVectors(int n)
+void SRmodel::AllocateDofVectors()
 {
-	functionEquations.Allocate(n, 3);
-	enforcedDisplacements.Allocate(n, 3);
+	functionEquations.Allocate(numFunctions, 3);
+	enforcedDisplacements.Allocate(numFunctions, 3);
 }
 
 void SRmodel::AllocateSmoothFunctionEquations(int n)
@@ -409,8 +417,6 @@ void SRmodel::allocateElements(int nel)
 {
 	elements.Allocate(nel);
 }
-
-
 
 void SRmodel::allocateEdges(int nel)
 {
@@ -551,6 +557,505 @@ bool SRmodel::UseSimpleElements()
 	return simpleElements;
 };
 
+void SRmodel::NumberGlobalFunctions()
+{
+	//assign global function numbers to all functions in model
+
+	SRnode* node;
+	SRedge* edge;
+	SRface* face;
+	SRelement* elem;
+	int i, n, nint;
+	int fun;
+	int j, k, pej;
+	int lfun, gfun;
+
+	//allocate space for function numbers for edges, faces, and elements:
+	for (i = 0; i < GetNumEdges(); i++)
+	{
+		edge = GetEdge(i);
+		n = 1 + edge->GetPorder();
+		edge->AllocateGlobalFunctionNumbers(n);
+	}
+	for (i = 0; i < GetNumFaces(); i++)
+	{
+		face = GetFace(i);
+		n = basis.CountFaceTotalFunctions(face, j);
+		face->AllocateGlobalFunctionNumbers(n);
+	}
+	for (i = 0; i < GetNumElements(); i++)
+	{
+		elem = GetElement(i);
+		n = basis.CountElementFunctions(elem, nint);
+		elem->AllocateGlobalFunctionNumbers(n);
+	}
+
+	//for nodes, assign a function number unless it is a midside node
+	//or orphan:
+	fun = 0;
+	for (i = 0; i < GetNumNodes(); i++)
+	{
+		node = GetNode(i);
+		if (!node->isMidSide() && !node->isOrphan())
+		{
+			node->PutGlobalFunctionNumber(fun);
+			fun++;
+		}
+	}
+
+	//edges:
+	//assign p2 funs 1st for easier mapping of p2 soln to adapted solns (e.g. itsolv):
+	for (i = 0; i < GetNumEdges(); i++)
+	{
+		edge = GetEdge(i);
+		edge->AssignGlobalFunctionNumbers(fun, 2, 2);
+		//assign the same function number to the corresponding global node.
+		//but fun was incremented in edge->AssignGlobalFunctionNumbers so subtract 1:
+		SRnode* node = GetNode(edge->GetMidNodeId());
+		node->PutGlobalFunctionNumber(fun - 1);
+	}
+	for (i = 0; i < GetNumEdges(); i++)
+	{
+		edge = GetEdge(i);
+		edge->AssignGlobalFunctionNumbers(fun, 3, 8);
+	}
+
+	//faces:
+	int nf = GetNumFaces();
+	int nn, ne;
+	for (i = 0; i < nf; i++)
+	{
+		lfun = 0;
+		face = GetFace(i);
+		//corner functions:
+		nn = face->GetNumNodes();
+		for (j = 0; j < nn; j++)
+		{
+			gfun = face->GetNode(j)->GetGlobalFunctionNumber();
+			face->PutGlobalFunctionNumber(lfun, gfun);
+			lfun++;
+		}
+
+		//edge p2 functions:
+		ne = face->GetNumLocalEdges();
+		for (j = 0; j < ne; j++)
+		{
+			edge = face->GetEdge(j);
+			gfun = edge->GetGlobalFunctionNumber(2);
+			face->PutGlobalFunctionNumber(lfun, gfun);
+			lfun++;
+		}
+
+		//edge higher functions:
+		ne = face->GetNumLocalEdges();
+		for (j = 0; j < ne; j++)
+		{
+			edge = face->GetEdge(j);
+			pej = edge->GetPorder();
+			for (k = 3; k <= pej; k++)
+			{
+				gfun = edge->GetGlobalFunctionNumber(k);
+				face->PutGlobalFunctionNumber(lfun, gfun);
+				lfun++;
+			}
+		}
+
+		n = face->GetNumGlobalFunctions();
+		for (j = lfun; j < n; j++)
+		{
+			face->PutGlobalFunctionNumber(lfun, fun);
+			lfun++;
+			fun++;
+		}
+	}
+	//elements:
+	maxNumElementFunctions = 0;
+	for (i = 0; i < GetNumElements(); i++)
+	{
+		lfun = 0;
+		elem = GetElement(i);
+		//nodes:
+		n = elem->GetNumNodes();
+		for (j = 0; j < n; j++)
+		{
+			gfun = elem->GetNode(j)->GetGlobalFunctionNumber();
+			elem->PutGlobalFunctionNumbers(lfun, gfun);
+			lfun++;
+		}
+
+		//edge p2 functions:
+		for (j = 0; j < elem->GetNumLocalEdges(); j++)
+		{
+			edge = elem->GetEdge(j);
+			gfun = edge->GetGlobalFunctionNumber(2);
+			elem->PutGlobalFunctionNumbers(lfun, gfun);
+			lfun++;
+		}
+
+		//edge higher functions:
+		for (j = 0; j < elem->GetNumLocalEdges(); j++)
+		{
+			edge = elem->GetEdge(j);
+			pej = edge->GetPorder();
+			for (k = 3; k <= pej; k++)
+			{
+				gfun = edge->GetGlobalFunctionNumber(k);
+				elem->PutGlobalFunctionNumbers(lfun, gfun);
+				lfun++;
+			}
+		}
+
+		//face functions:
+		for (j = 0; j < elem->GetNumLocalFaces(); j++)
+		{
+			face = elem->GetFace(j);
+			n = basis.CountFaceTotalFunctions(face, nint);
+			//skip number of edge and node functions on face:
+			for (k = (n - nint); k < n; k++)
+			{
+				gfun = face->GetGlobalFunctionNumber(k);
+				elem->PutGlobalFunctionNumbers(lfun, gfun);
+				lfun++;
+			}
+		}
+
+		//internal functions:
+		n = basis.CountElementFunctions(elem, nint);
+		if (n > maxNumElementFunctions)
+			maxNumElementFunctions = n;
+		for (j = 0; j < nint; j++)
+		{
+			elem->PutGlobalFunctionNumbers(lfun, fun);
+			lfun++;
+			fun++;
+		}
+	}
+
+	numFunctions = fun;
+	setmaxNumElementFunctions(maxNumElementFunctions);
+}
+
+int SRmodel::GetNumFunctions()
+{
+	return numFunctions;
+}
+
+double SRmodel::getMaxAllowableAnyActiveMat()
+{
+	return maxAllowableAnyActiveMat;
+};
+
+void SRmodel::initializeErrorCheck()
+{
+	errorChecker.Initialize();
+}
+
+bool SRmodel::checkForSmallMaxStress()
+{
+	return errorChecker.getSmallMaxStressDetected();
+}
+
+void SRmodel::setupErrorCheck(bool finalAdapt, double stressMaxIn, double ErrorToleranceIn, int maxPorderIn, int maxPJumpIn, int maxPorderLowStressIn)
+{
+	errorChecker.SetUp(finalAdapt, stressMaxIn, ErrorToleranceIn, maxPorderIn, maxPJumpIn, maxPorderLowStressIn);
+}
+
+int SRmodel::CheckAutoSacrificialElements()
+{
+	return errorChecker.AutoSacrificialElements();
+}
+
+void SRmodel::CleanUpErrorCheck()
+{
+	errorChecker.CleanUp();
+}
+
+bool SRmodel::FindNextP(SRelement* elem, int& p)
+{
+	return errorChecker.FindRequiredPOrder(elem, p);
+}
+double SRmodel::FindElementError(SRelement* elem)
+{
+	return errorChecker.FindError(elem);
+}
+
+void SRmodel::SetLowStressTolerance(double tol)
+{
+	errorChecker.SetLowStressTol(tol);
+}
+
+void SRmodel::SetLowStressToleranceFinalAdapt(double tol)
+{
+	errorChecker.setLowStressTolFinalAdapt(tol);
+}
+
+bool SRmodel::PreProcessPenaltyConstraints()
+{
+	//see if any penalty constraints are needed; if so, calibrate the penalty constant
+
+	bool anyLcsEnfd = false;
+
+	SRconstraint* con;
+	//fill faceLcsCoonstraints for elements with non-gcs constraints on boundary faces:
+	for (int i = 0; i < model.GetNumConstraints(); i++)
+	{
+		con = model.GetConstraint(i);
+		if (con->GetType() != faceCon)
+			continue;
+		if (!con->isGcs())
+		{
+			int f = con->GetEntityId();
+			SRface* face = model.GetFace(f);
+			if (!face->IsBoundaryFace())
+				ERROREXIT; //not boundary face, non-gcs not supported
+			int eId = face->GetElementOwner(0);
+			SRelement* elem = model.GetElement(eId);
+			int lface = face->GetElementLocalFace(0);
+			elem->CalibratePenalty();
+			elem->AddfaceLCSConstraint(lface);
+			if (con->hasEnforcedDisp())
+				anyLcsEnfd = true;
+
+		}
+	}
+
+	//fill nodeLcsCoonstraints for elements with non-gcs constraints on nodes:
+	for (int i = 0; i < model.GetNumConstraints(); i++)
+	{
+		con = model.GetConstraint(i);
+		if (con->GetType() != nodalCon)
+			continue;
+		if (!con->isGcs())
+		{
+			int n = con->GetEntityId();
+			bool found = false;
+			for (int f = 0; f < model.GetNumFaces(); f++)
+			{
+				SRface* face = model.GetFace(f);
+				if (!face->IsBoundaryFace())
+					continue;
+				int eid = face->GetElementOwner(0);
+				SRelement* elem = model.GetElement(eid);
+				//find local node corresponding to node:
+				for (int l = 0; l < elem->GetNumNodesTotal(); l++)
+				{
+					if (elem->getNodeOrMidNodeId(l) == n)
+					{
+						elem->AddNodeLcSConstraints(l);
+						elem->CalibratePenalty();
+						found = true;
+						break;
+					}
+				}
+				if (found)
+					break;
+			}
+			if (!found)
+				ERROREXIT;//lcs constraint not on boundary- not supported
+			if (con->hasEnforcedDisp())
+				anyLcsEnfd = true;
+		}
+	}
+
+	return anyLcsEnfd;
+}
+
+void SRmodel::ProcessConstraints()
+{
+	//process constraints
+	//notes:
+		//number functionEquations(fun,dof) as negative for a gcs constrained global dof.
+		//the number is -1 if there is no enforced displacement, else
+		//it is the number in the enforcedDisplacements matrix where the enforced displacement is stored
+		//class variables functionEquations and enforcedDisplacements are updated
+		//lcs constraints are skipped because they are handled via penalty
+
+	int i, dof, gfun;
+	SRconstraint* con;
+	SRnode* node;
+
+	AllocateDofVectors();
+
+	for (i = 0; i < GetNumConstraints(); i++)
+	{
+		con = GetConstraint(i);
+
+		//skip lcs constraint, they are handled via penalty:
+		if (!con->isGcs())
+			continue;
+		int eid = con->GetEntityId();
+		if (con->GetType() == nodalCon)
+		{
+			node = model.GetNode(eid);
+			gfun = node->GetGlobalFunctionNumber();
+			for (dof = 0; dof < 3; dof++)
+			{
+				if (con->IsConstrainedDof(dof))
+				{
+					model.PutFunctionEquation(gfun, dof, -1);
+					if (con->hasEnforcedDisp())
+					{
+						double enfd = con->getDisp(0, dof);
+						model.PutEnforcedDisplacement(gfun, dof, enfd);
+					}
+				}
+			}
+		}
+		else if (con->GetType() == faceCon)
+		{
+			con->ProcessFaceConstraint();
+		}
+	}
+
+	for (i = 0; i < model.GetNumElements(); i++)
+	{
+		SRelement* elem = model.GetElement(i);
+		for (int f = 0; f < elem->GetNumFunctions(); f++)
+		{
+			int gfun = elem->GetFunctionNumber(f);
+			for (dof = 0; dof < 3; dof++)
+			{
+				if (model.GetFunctionEquation(gfun, dof) < 0)
+				{
+					elem->SetConstrained();
+					break;
+				}
+			}
+			if (elem->isConstrained())
+				break;
+		}
+	}
+}
+
+int SRmodel::NumberEquations()
+{
+	//global equation numbering
+	//note:
+		//fills class variable functionEquations
+		//ProcessConstraints has to be called 1st. 
+		//it assigns a negative number to global dofs that are constrained
+		//this routine will only assign an equation number to unconstrained
+		//global dofs
+
+	int eq = 0;
+	for (int gfun = 0; gfun < model.GetNumFunctions(); gfun++)
+	{
+		for (int dof = 0; dof < 3; dof++)
+		{
+			//unconstrained dofs have temporarily been assigned to 0.
+			//constrained dofs are assigned a negative number
+			int eqt = model.GetFunctionEquation(gfun, dof);
+			if (eqt == 0)
+			{
+				model.PutFunctionEquation(gfun, dof, eq);
+				eq++;
+			}
+		}
+	}
+	numEquations = eq;
+	return numEquations;
+}
+
+void SRmodel::checkElementMapping()
+{
+
+	//check mapping of all elements at all gauss points needed this p-pass.
+	//straighten edges and mark associated elements as sacrificial if mapping is bad.
+
+	int nel = model.GetNumElements();
+	bool anyFail = false;
+	int e;
+	for (e = 0; e < nel; e++)
+	{
+		SRelement* elem = model.GetElement(e);
+		elem->FillMappingNodes();
+		if (!elem->testMapping())
+			anyFail = true;
+	}
+
+	if (!anyFail)
+		return;
+
+	for (e = 0; e < nel; e++)
+	{
+		SRelement* elem = model.GetElement(e);
+		elem->checkForStraightenedEdges();
+	}
+
+	for (e = 0; e < nel; e++)
+	{
+		SRelement* elem = model.GetElement(e);
+		if (!elem->isFlattened())
+			continue;
+		elem->FillMappingNodes();
+		if (!elem->testMapping())
+		{
+			//LOGPRINT("checkElementMapping elem failed: %d", elem->userId);
+			anyFail = true;
+		}
+	}
+	//flattening of an element may have invalidated an adjacent element
+	if (!anyFail)
+		return;
+
+	//flattening of an element may have invalidated an adjacent element
+	for (e = 0; e < nel; e++)
+	{
+		SRelement* elem = model.GetElement(e);
+		if (!elem->isFlattened())
+			continue;
+		elem->FillMappingNodes();
+		if (!elem->testMapping())
+			anyFail = true;
+	}
+	if (anyFail)
+	{
+		model.setPartialFlatten(false);
+		for (e = 0; e < nel; e++)
+		{
+			SRelement* elem = model.GetElement(e);
+			if (!elem->isFlattened())
+				continue;
+			elem->FillMappingNodes();
+			if (!elem->testMapping())
+				anyFail = true;
+		}
+		for (e = 0; e < nel; e++)
+		{
+			SRelement* elem = model.GetElement(e);
+			elem->checkForStraightenedEdges();
+		}
+	}
+}
+
+int SRmodel::elemFaceFind(SRelement* elem, int nv[], int gno[])
+{
+	//find the face on an element that matches nodes in nv array
+	//input:
+		//elem = pointer to element
+		//nv = corner nodes of faces. nv[3] = -1 for tri face
+	//output:
+		//gno = global node orders of the nodes on the face corresponding to nv
+	//return
+		//id of the global faces in the model with corner nodes nv; -1 if no match
+	for (int l = 0; l < elem->GetNumLocalFaces(); l++)
+	{
+		SRface* face = elem->GetFace(l);
+		if (SRfaceUtil::FaceMatch(nv, face->getNodeIds(), gno))
+			return elem->GetLocalFaceGlobalId(l);
+	}
+	return -1;
+}
+
+double* SRmodel::GetElementStiffnessVector()
+{
+	//look up the element stiffness Vector for a processor number
+	//input:
+		//processorNum = processor number, 0 if not multi-threaded
+
+	SRElementData* eld = GetElementData();
+	return eld->elementStiffness.GetVector();
+}
 
 
 

@@ -86,10 +86,10 @@ public:
 	void Clear();
 	void NodeNaturalCoords(int lnode, double& r, double& s, double& t);
 	void StraintoStress(double r, double s, double t, double strain[], double stress[]);
-	void AddPenaltyToStiffnessandEnfDisp(double* stiff);
+	void AddPenaltyToStiffnessandEnfDisp(double* stiff, double* globalEnfdVec = 0);
 	SRnode* GetNode(int localnodenum);
 	int localEdgeMatch(int gId);
-	double* CalculateStiffnessMatrix(int &len);
+	double* CalculateStiffnessMatrix(int& len, double* globalEnfdVec = 0);
 	SRnode* GetLocalEdgeNode(int lej, int localnodenum);
 	void FillKel33GenAnisoRowWise(SRBTC& btc, int rowfun, int colfun, double dbdx, double dbdy, double dbdz, double kel33[3][3]);
 	void FillBTC(double intwt, double dbdx, double dbdy, double dbdz, SRBTC& btc);

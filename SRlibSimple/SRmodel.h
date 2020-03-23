@@ -40,6 +40,7 @@ also available at <https://www.gnu.org/licenses/>
 #include "SRconstraint.h"
 #include "SRforce.h"
 #include "SRfile.h"
+#include "SRerrorCheck.h"
 
 enum SRentityType{ nodeType, edgeType, faceType, elementType };
 
@@ -183,7 +184,7 @@ public:
 	void CleanUp(bool partial = false);
 	void allocateElementData();
 	void FreeElementData();
-	void allocateSmallElementData(int numEquations, bool anyLcsEnfd = false);
+	void allocateSmallElementData(bool anyLcsEnfd = false);
 	void FreeSmallElementData();
 	SRElementData* GetElementData();
 	void setSolutionVector(double *s);
@@ -212,13 +213,12 @@ public:
 	void resizeConstraints(int n){ constraints.Allocate(n); };
 	int GetSmoothFunctionEquation(int fun);
 	void PutSmoothFunctionEquation(int fun, int v);
+	void checkElementMapping();
+	int elemFaceFind(SRelement* elem, int nv[], int gno[]);
 
 	bool getAllMatsHaveAllowable(){ return allMatsHaveAllowable; };
-	double getMaxAllowableAnyActiveMat()
-	{
-		return maxAllowableAnyActiveMat;
-	};
-	void AllocateDofVectors(int n);
+	double getMaxAllowableAnyActiveMat();
+	void AllocateDofVectors();
 	void AllocateSmoothFunctionEquations(int n);
 	void allocateElements(int nel);
 	void allocateFaces(int n);
@@ -238,24 +238,38 @@ public:
 	SRnode* addNode();
 	SRedge* addEdge();
 	SRface* addFace();
+	SRelement* addElement();
 	SRconstraint* addConstraint();
 	SRforce* addForce();
 	SRvolumeForce* addVolumeForce() { return volumeForces.Add(); };
 	void setRepFileName(char* s);
-	void setOutFileName(char* s);
-	void setLogFileName(char* s);
 	void allocateNodeEdges(int n);
 	void allocateNodeFaces(int n);
 	void freeNodeEdges();
 	void freeNodeFaces();
 	void SetsimpleElements();
 	bool UseSimpleElements();
-
+	void NumberGlobalFunctions();
+	int GetNumFunctions();
+	void initializeErrorCheck();
+	bool checkForSmallMaxStress();
+	void setupErrorCheck(bool finalAdapt, double stressMaxIn, double ErrorToleranceIn, int maxPorderIn, int maxPJumpIn, int maxPorderLowStressIn);
+	int CheckAutoSacrificialElements();
+	void CleanUpErrorCheck();
+	bool FindNextP(SRelement* elem, int& p);
+	double FindElementError(SRelement* elem);
+	void SetLowStressTolerance(double tol);
+	void SetLowStressToleranceFinalAdapt(double tol);
+	bool PreProcessPenaltyConstraints();
+	void ProcessConstraints();
+	int NumberEquations();
+	double* GetElementStiffnessVector();
 
 	//1 instance of each utility class:
 	SRbasis basis;
 	SRmath math;
 	SRmap map;
+	SRerrorCheck errorChecker;
 
 	SRfile repFile;
 	SRfile logFile;
@@ -279,7 +293,7 @@ private:
 	SRpointerVector <SRmaterial> materials;
 	SRpointerVector <SRforce> forces;
 	SRpointerVector <SRvolumeForce> volumeForces;
-	SRvector <SRelement> elements;
+	SRpointerVector <SRelement> elements;
 	SRthermalForce* thermalForce;
 	SRpointerVector <SRFaceForceGroup> faceForceGroups;
 	SRpointerVector <SRElProperty> elProps;
@@ -290,7 +304,9 @@ private:
 	//scratch space needed by elements:
 	SRElementData elData;
 	int maxNumElementFunctions;
-
+	int numFunctions;
+	int numEquations;
+	
 	bool allFacesFlat;
 	bool partialFlatten;
 

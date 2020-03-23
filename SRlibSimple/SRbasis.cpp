@@ -24,9 +24,7 @@ also available at <https://www.gnu.org/licenses/>
 #include "SRmodel.h"
 #include "SRbasis.h"
 
-
 extern SRmodel model;
-
 
 void SRbasis::LegendrePns(int p, double r, double *Pn)
 {

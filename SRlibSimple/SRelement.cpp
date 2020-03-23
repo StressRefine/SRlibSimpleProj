@@ -457,20 +457,16 @@ void SRelement::colFunLoopGenAniso(double* dbdxv, double* dbdyv, double* dbdzv, 
 	}
 }
 
-double* SRelement::CalculateStiffnessMatrix(int& len)
+double* SRelement::CalculateStiffnessMatrix(int& numEq, double* globalEnfdVec)
 {
 	//Calculate Element Stiffness Matrix for a three dimensional element
-	//output:
-		//length of stiffness matrix
-	//return:
-		//Element Stiffness Matrix stored symmetrically
-	//Calculate Element Stiffness Matrix for a three dimensional element
 	//input:
-		//processorNum =  else processor calling this element, 0 for single-thread
+		//globalEnfdVec = storage for global enforced displacement vector
+		//(NULL to use internal storage or if enforced displacement not needed)
 	//output:
-		//length of stiffness matrix
+		//numEq = number of equations in element stiffmatrix
 	//return:
-		//Element Stiffness Matrix stored symmetrically
+		//Element Stiffness Matrix stored symmetrically (upper triangular)
 	double* stiff = NULL;
 
 	int i, neq;
@@ -480,9 +476,9 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 	double w, dbdx, dbdy, dbdz;
 	nint = model.math.FillGaussPoints(this);
 
-	neq = 3 * nfun;
+	numEq = neq = 3 * nfun;
 	FillStiffDiag(neq);
-	len = neq * (neq + 1) / 2;
+	int len = neq * (neq + 1) / 2;
 
 	if (len > stiffnessMatrix.GetNum())
 		stiffnessMatrix.Allocate(len);
@@ -555,7 +551,7 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 	}
 
 	if (hasLcsConstraint())
-		AddPenaltyToStiffnessandEnfDisp(stiff);
+		AddPenaltyToStiffnessandEnfDisp(stiff, globalEnfdVec);
 
 
 	stiffLength = len;
@@ -564,9 +560,12 @@ double* SRelement::CalculateStiffnessMatrix(int& len)
 
 }
 
-void SRelement::AddPenaltyToStiffnessandEnfDisp(double *stiff)
+void SRelement::AddPenaltyToStiffnessandEnfDisp(double *stiff, double* globalEnfdVec)
 {
 	//handle constraints in non-gcs coordinates with penalty method
+	//input:
+		//globalEnfdVec = storage for global enforced displacement vector
+		//(0 to use internal storage or if enforced displacement not needed)
 	//output:
 		//stiff updated with contribution of penalty
 	//notes:
@@ -584,7 +583,13 @@ void SRelement::AddPenaltyToStiffnessandEnfDisp(double *stiff)
 	double elA, elB;
 	SRvec3 pos;
 
-	double *forceVec = model.GetElementData()->GetEnfdForceVec();
+
+	double* forceVec = NULL;
+	if (globalEnfdVec != 0)
+		forceVec = globalEnfdVec;
+	else
+		model.GetElementData()->GetEnfdForceVec();
+
 	for (int facon = 0; facon < faceLCSConstraints.GetNum(); facon++)
 	{
 		int lface = faceLCSConstraints.Get(facon);

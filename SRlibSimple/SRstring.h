@@ -31,7 +31,6 @@ also available at <https://www.gnu.org/licenses/>
 
 using namespace std;
 
-
 class SRstring
 {
 public:
