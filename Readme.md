@@ -1,9 +1,10 @@
 SRlibSimpleProj
 
 Updated Version will compile on linux or windows
-linux Version: download source, go into folder linuxDebug or linuxRelease and make all there, library will reside their
+linux Version: download source, go into folder linuxDebug or linuxRelease and make all there, library will reside thrre
+note that both the makefile and all ".mk" files are needed because the makefile references them
 
-Porject to create the stressRefine library SRlibSimple
+Project to create the stressRefine library SRlibSimple
 Windows Visual Studio version that was last modified using VS2013.
 That and any newer version should work to compile this project.
 It is in C++
