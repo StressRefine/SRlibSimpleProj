@@ -15,3 +15,5 @@ Choose a configuration at the top (debug or release). Next to that it should say
 You can change that to win32 but executation is faster in x64 mode.
 Now hit build to compile. A subfolder is created x64/debug or x64/release depending on the configuration.
 Inside that folder will be the library file SRlibSimple.lib
+
+##Using the library: see pdf document "Using the StressRefine Library Template.pdf"
