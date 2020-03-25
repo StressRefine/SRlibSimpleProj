@@ -34,7 +34,7 @@ __These steps are only done once to set up the problem:__
 * _input nodal coordinates: for each node_: createNode(int uid, double x, double y, double z)
 * _Enter Number of elements of each type (bricks, wedges, tets)_: SetNumElements(int numBricks, int numWedges, int numTets)
 ..* Note: this must be called even if your are modifying your own elements. stressRefine stores informaton needed for the basis function routines in the elements
-* _Use element definitions to create edges and faces for the model
+* _Use element definitions to create edges and faces for the model_
 ..* _Note: this must be called even if your are modifying your own elements. stressRefine stores informaton needed for the basis function routines in the elements
 ..* _For each element_, createElementIso(int uid, int numnodes, int* nodeids, double E, double nu);
 ..* _after all elements have been created, create global faces_: createGlobalFaces()
@@ -72,9 +72,9 @@ _This returns total number of equations. Equation numbers corresponding to each 
 ..* call element stress routine
 1. _either modify your code’s element stress routines to use p-adaptive displacement functions instead of conventional shape functions (discussed below) OR_
 2. _evaluate stresses with stressRefine routine. routine_ void calculateRawStress(int elemId, double r, double s, double t, double* stress)
-_Note: hierarchical basis functions cannot be evaluated directly at corners, they are singular. Either evaluate them away from the corner and project OR
-evaluate them at optimal sampling points and smooth to corners and midnodes (recommended, more accurate): see _post.globalstrainsmooth_ in SRwithMklProj
-_This calculates the smoothed strain vector for each function of each element. You will need to modify _globalstrainsmooth_ if you are using a different solver than Intel Mkl Pardiso.
+_Note: hierarchical basis functions cannot be evaluated directly at corners, they are singular. Either evaluate them away from the corner and project OR_
+_evaluate them at optimal sampling points and smooth to corners and midnodes (recommended, more accurate): see _ post.globalstrainsmooth  _in SRwithMklProj_
+_This calculates the smoothed strain vector for each function of each element. You will need to modify _globalstrainsmooth_ if you are using a different solver than Intel Mkl Pardiso._
 _Then to calculate the stress from the smoothed strains at any point in an element:_
 void calculateSmoothedStress(int elemId, double r, double s, double t, double* stress);
 Postprocess and output in desired format
