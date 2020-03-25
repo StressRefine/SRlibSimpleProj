@@ -4,9 +4,11 @@ Note: whereever functions calls are mentioned below, the functions are defined i
 There are two steps:
 1. Setup so element and stress recovery routines work for arbitrary p-order
 2. Wrap an adaptive loop around your solution routine
-I will illustrate how to carry out these steps by showing modifications to the pseudo-code of a conventional finite element program in red.
+
+I will illustrate how to carry out these steps by showing modifications to the pseudo-code of a conventional finite element program in italics.
+
 Notes on programming languages:
- the StressRefine library was designed to be called directly from C++
+The StressRefine library was designed to be called directly from C++
 *wrappers have been provided so all the needed functions can be also called from c
 *wrappers have been provided so all the needed functions can be also called from fortran using
 linux conventions, for example, for a routine cfun(), a wrapper cfun_() is provided, and the function is call from fortran using “call cfun()”. In the descriptions below, I always give the name of the c-function. The corresponding Fortran-calleable functions has a lower case “f” in front. For example, to set the number of nodes in the model, the c function is SetNumNodes, while from fortran it would be “call fSetNumNodes”.
