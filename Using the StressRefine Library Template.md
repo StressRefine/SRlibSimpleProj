@@ -46,7 +46,7 @@ _This returns the constraintid that was added. If there are enforced displacemen
 for each corner node of the face_, inputFaceNodeEnfd(int constraintId, int localNodeNum, double enforcedDisp[3]);
 _where_ constraintId _was returned by_ addFaceConstraint
 
-*_If there are any constraints in coordinates systems other than the global coordinate system (gcs), they need to be preprocessed so they can be handled via a penalty method:_ PreProcessPenaltyConstraints
+* _If there are any constraints in coordinates systems other than the global coordinate system (gcs), they need to be preprocessed so they can be handled via a penalty method:_ PreProcessPenaltyConstraints
 
 __These steps must be repeated for every solution pass:__
 * element bookkeeping- relate local node number to global node id for each element (this is often called the ID array in textbooks)
@@ -62,8 +62,8 @@ _This returns total number of equations. Equation numbers corresponding to each 
 ..* _calculate element stiffnesses using stressRefine elements. Since these use stressRefine’s internal quadratic mapping, first call_ mapSetup_, then for each element:_
  CalculateStiffnessMatrix (id, upperTriangle)
 ..*_NOTES:_
-1. _SRelement routine will automatically handle the penalty constraints at the element level. If you are using your own stiffness routines they will have to be modified to handle this._
-2. _If using the SRelement routine, it is recommended to call checkElementMapping before entering the loop to calculate elements stiffnesses. This will perform element “partial flattening” link!! if any elements have invalid mapping_
+1. _The StressRefine Element Stiffness routine will automatically handle the penalty constraints at the element level. If you are using your own stiffness routines they will have to be modified to handle this._
+2. _If using the The StressRefine Element Stiffness routine, it is recommended to call checkElementMapping before entering the loop to calculate elements stiffnesses. This will perform element “partial flattening” link!! if any elements have invalid mapping_
 * Assemble global stiffness and decomp
 ..*_use the modifications above to do the element bookkeeping_
 ..* _No effect on direct solvers_
