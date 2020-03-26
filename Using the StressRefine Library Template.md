@@ -87,7 +87,7 @@ Postprocess and output in desired format
 * Calculate errors from solution
 ..* setup: setupErrorCheck(bool finalAdapt, double stressMax, double ErrorTolerance, int maxPorder, int maxPJump, int maxPorderLowStress); This routine calculates the tractions at sample points for each local face of each element
 ..* for each element: FindElementError(int elId); This returns the element error relative to the max stress in model
-* Calcuate new require p-orders: _for each element:_ FindNextP(int elId, int* pNext) _returns true if the element needed to be adapted else false._
+* Calcuate new require p-orders: _for each element:_ FindNextP(int elId, int* pNext) _returns true if the element needed to be adapted else false._ Note: if FindNextP returns false, the element stiffness matrix for the element with elId does not need to be recomputed in the next pass. The stiffness matrix from the previous solution pass can be reused.
 * _if no element was adapted, break loop_
 **UNTIL CONVERGED**
 
